@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<div id="loadingText"></div>
+<input id="MinSVal" type="number"></input>
+<p id="msg"></p>
+<div>
+<input type="file" id="multiFiles" name="files[]" multiple="multiple"/>
+<button id="upload">Upload</button>
+</div>
+<script type="text/javascript" src="jquery-3.4.1.min.js"></script>
+<script type="text/javascript">
+	$(document).ready(function (e) {
+		$('#upload').on('click', function () {
+			if(document.getElementById('MinSVal').value==""){
+				return;
+			}
+			var form_data = new FormData();
+			var ins = document.getElementById('multiFiles').files.length;
+			var araiTestFile = [];
+			for (var x = 0; x < ins; x++) {
+				form_data.append("files[]", document.getElementById('multiFiles').files[x]);
+				araiTestFile.push({mode:1,name:document.getElementById('multiFiles').files[x].name,doc:(x+1),enddoc:ins});
+			}
+			araiTestFile.push({mode:3,row:0},{mode:4,SValue:parseInt(document.getElementById('MinSVal').value)});
+			console.log(araiTestFile);
+			$.ajax({
+				url: 'Pembeda-kun.php?mode=5', // point to server-side PHP script 
+				dataType: 'text', // what to expect back from the PHP script
+				cache: false,
+				contentType: false,
+				processData: false,
+				data: form_data,
+				type: 'post',
+				success: function (response) {
+					if((response.match(/File successfully uploaded/g)).length==ins){
+						GetProcess(araiTestFile);
+					}else{
+						console.log("Damn you Bug!!!");
+					}
+				},
+				error: function (response) {
+					$('#msg').html(response); // display error response from the PHP script
+				}
+			});
+		});
+	});
+</script>
+<script>
+FileList = [];
+//object req
+function MakeMatrix(reqPar){
+	if(arainow>arraidoc.length){
+		console.log("Shit");
+		return;
+	}
+	url = "Pembeda-kun.php";
+	if((reqPar["mode"])){
+		url = url+"?mode="+reqPar["mode"];
+	}
+	switch(reqPar["mode"]){
+		case 1:
+			if((reqPar["name"])&&(reqPar["doc"])&&(reqPar["enddoc"])){
+				url = url+"&name="+reqPar["name"];
+				url = url+"&doc="+reqPar["doc"];
+				url = url+"&enddoc="+reqPar["enddoc"];
+				break;
+			}
+			return;
+			break;
+		case 2:
+			if((reqPar["name"])&&(reqPar["Part"])&&(reqPar["length"])){
+				url = url+"&name="+reqPar["name"]+(reqPar["Part"]-1);
+				break;
+			}
+			return;
+			break;
+		case 3:
+			if((reqPar["row"])||(reqPar["row"]==0)){
+				url = url+"&row="+reqPar["row"];
+				break;
+			}
+			return;
+			break;
+		default:
+			break;
+	}
+	var xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		switch(reqPar["mode"]){
+			case 1:
+				strLoading = reqPar["mode"]+" "+reqPar["name"]+" "+reqPar["doc"];
+				break;
+			case 2:
+				strLoading = reqPar["mode"]+" "+reqPar["name"]+" "+reqPar["Part"];
+				break;
+			case 3:
+				strLoading = reqPar["mode"]+" "+reqPar["row"];
+				break;
+			case 4:
+				strLoading = reqPar["mode"];
+				break;
+			default:
+				strLoading = reqPar["mode"];
+				break;
+		}
+		document.getElementById("loadingText").innerHTML = strLoading;
+		if (this.readyState == 4 && this.status == 200) {
+			switch(reqPar["mode"]){
+				case 1:
+					docbit = "";
+					var i;
+					for (i = 1; i <= reqPar["enddoc"]; i++) {
+						if(i==reqPar["doc"]){
+							docbit = docbit+"1";
+						}else{
+							docbit = docbit+"0";
+						}
+					}
+					docbit = docbit+" ";
+					MakeMatrix({mode : 2,name: docbit+reqPar["name"],Part : 1,length:this.responseText});
+					return;
+					break;
+				case 2:
+					if(reqPar["Part"]>reqPar["length"]){
+						arainow+=1;
+						if(arraidoc.length==arainow){
+							return;
+						}
+						MakeMatrix(arraidoc[arainow]);
+						break;
+					}
+					MakeMatrix({mode : 2,name: reqPar["name"],Part : reqPar["Part"]+1,length:reqPar["length"]});
+					return;
+					break;
+				case 3:
+					if(this.responseText=="end"){
+						arainow+=1;
+						MakeMatrix(arraidoc[arainow]);
+						return;
+					}
+					MakeMatrix({mode : 3,row : reqPar["row"]+1});
+					return;
+					break;
+				case 4:
+					var araiSValue = this.responseText;
+					araiSValue = araiSValue.split("\n");
+					if(reqPar["SValue"]){
+						DiffDoc = "";
+						var i;
+						for (i = 0; i < araiSValue.length; i++) {
+							if(reqPar["SValue"]<=araiSValue[i]){
+								DiffDoc+=("Doc"+(i+1));
+							}
+						}
+						document.getElementById("loadingText").innerHTML = DiffDoc;
+						return;
+					}
+					return;
+					break;
+				default:
+					break;
+			}
+		}
+	};
+	xhttp.open("GET", url, true);
+	xhttp.send();
+}
+function GetProcess(listRequest){
+	arainow = 0;
+	arraidoc = listRequest;
+	MakeMatrix(arraidoc[arainow]);
+}
+
+//GetProcess();
+</script>
